@@ -1,8 +1,9 @@
 export enum ErrorType {
-  Load = 'LOAD_ERROR',
-  Input = 'INPUT_ERROR',
-  Add = 'ADD_ERROR',
-  Delete = 'DELETE_ERROR',
-  CompletedDelete = 'COMPLETED_DELETE_ERROR',
-  Update = 'UPDATE_ERROR',
+  Default = '',
+  Input = 'Title should not be empty',
+  Add = 'Unable to add a todo',
+  Delete = 'Unable to delete a todo',
+  // CompletedDelete = 'Unable to delete a completed todo',
+  Update = 'Unable to update a todo',
+  Load = 'Unable to load todos',
 }

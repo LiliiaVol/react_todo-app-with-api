@@ -1,24 +1,31 @@
 import classNames from 'classnames';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Todo } from '../../types/Todo';
 import { FilterType } from '../../types/FilterType';
 
 type Props = {
-  todosLeft: Todo[];
+  todos: Todo[];
   filterType: FilterType;
   setFilterType: React.Dispatch<React.SetStateAction<FilterType>>;
-  todosCompleted: Todo[];
   onDeleteCompletedTodos: () => void;
 };
 
 export const Footer: React.FC<Props> = (props: Props) => {
-  const {
-    todosLeft,
-    filterType,
-    setFilterType,
-    todosCompleted,
-    onDeleteCompletedTodos,
-  } = props;
+  const { todos, filterType, setFilterType, onDeleteCompletedTodos } = props;
+
+  const todosLeft = useMemo((): Todo[] => {
+    return todos.filter(todo => !todo.completed);
+  }, [todos]);
+
+  const todosCompleted = useMemo((): Todo[] => {
+    return todos.filter(todo => todo.completed);
+  }, [todos]);
+
+  const filterOptions = [
+    { label: 'All', value: FilterType.All, href: '#/' },
+    { label: 'Active', value: FilterType.Active, href: '#/active' },
+    { label: 'Completed', value: FilterType.Completed, href: '#/completed' },
+  ];
 
   return (
     <footer className={classNames('todoapp__footer')} data-cy="Footer">
@@ -27,44 +34,21 @@ export const Footer: React.FC<Props> = (props: Props) => {
       </span>
 
       <nav className="filter" data-cy="Filter">
-        <a
-          href="#/"
-          className={classNames('filter__link', {
-            selected: filterType === FilterType.All,
-          })}
-          data-cy="FilterLinkAll"
-          onClick={() => {
-            setFilterType(FilterType.All);
-          }}
-        >
-          All
-        </a>
-
-        <a
-          href="#/active"
-          className={classNames('filter__link', {
-            selected: filterType === FilterType.Active,
-          })}
-          data-cy="FilterLinkActive"
-          onClick={() => {
-            setFilterType(FilterType.Active);
-          }}
-        >
-          Active
-        </a>
-
-        <a
-          href="#/completed"
-          className={classNames('filter__link', {
-            selected: filterType === FilterType.Completed,
-          })}
-          data-cy="FilterLinkCompleted"
-          onClick={() => {
-            setFilterType(FilterType.Completed);
-          }}
-        >
-          Completed
-        </a>
+        {filterOptions.map(option => (
+          <a
+            key={option.value}
+            href={option.href}
+            className={classNames('filter__link', {
+              selected: filterType === option.value,
+            })}
+            data-cy={`FilterLink${option.label}`}
+            onClick={() => {
+              setFilterType(option.value);
+            }}
+          >
+            {option.label}
+          </a>
+        ))}
       </nav>
 
       <button

@@ -1,15 +1,13 @@
 import classNames from 'classnames';
 import React from 'react';
 import { ErrorType } from '../../types/ErrorType';
-import { Todo } from '../../types/Todo';
 
 type Props = {
-  todos: Todo[];
-  errorState: Record<ErrorType, boolean>;
+  errorState: ErrorType;
 };
 
 export const ErrorNotification: React.FC<Props> = (props: Props) => {
-  const { todos, errorState } = props;
+  const { errorState } = props;
 
   return (
     <div
@@ -22,13 +20,7 @@ export const ErrorNotification: React.FC<Props> = (props: Props) => {
       )}
     >
       <button data-cy="HideErrorButton" type="button" className="delete" />
-      {!todos.length && `Unable to load todos`}
-      {errorState[ErrorType.Input] && `Title should not be empty`}
-      {errorState[ErrorType.Add] && `Unable to add a todo`}
-      {(errorState[ErrorType.Delete] ||
-        errorState[ErrorType.CompletedDelete]) &&
-        `Unable to delete a todo`}
-      {errorState[ErrorType.Update] && `Unable to update a todo`}
+      {!!errorState.length && errorState}
     </div>
   );
 };

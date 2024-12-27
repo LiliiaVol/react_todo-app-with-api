@@ -1,6 +1,5 @@
 /* eslint-disable max-len */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { UserWarning } from './UserWarning';
 import {
   deleteTodo,
   getTodos,
@@ -15,92 +14,38 @@ import { Header } from './components/Header/Header';
 import { Footer } from './components/Footer/Footer';
 import { ErrorNotification } from './components/ErrorNotification/ErrorNotification';
 import { ErrorType } from './types/ErrorType';
+import { filterTodos } from './utils/filterTodos';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [activeTodos, setActiveTodos] = useState<Todo[]>([]);
-
-  const [titleEdit, setTitleEdit] = useState('');
-
-  const [errorState, setErrorState] = useState<Record<ErrorType, boolean>>({
-    [ErrorType.Load]: false,
-    [ErrorType.Input]: false,
-    [ErrorType.Add]: false,
-    [ErrorType.Delete]: false,
-    [ErrorType.CompletedDelete]: false,
-    [ErrorType.Update]: false,
-  });
-
-  const setError = (errorType: ErrorType) => {
-    setErrorState(prevState => ({
-      ...prevState,
-      [errorType]: true,
-    }));
-
-    setTimeout(() => {
-      setErrorState(prevState => ({
-        ...prevState,
-        [errorType]: false,
-      }));
-    }, 3000);
-  };
-
-  const [isLoading, setIsLoading] = useState(false);
-
+  const [errorState, setErrorState] = useState<ErrorType>(ErrorType.Default);
   const [isInputDisabled, setIsInputDisabled] = useState(false);
   const [title, setTitle] = useState('');
   const [filterType, setFilterType] = useState<FilterType>(FilterType.All);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputEditRef = useRef<HTMLInputElement>(null);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
-
-  const [idTodoChanged, setIdTodoChanged] = useState<number | null>(null);
-  const [todoChangedTitle, setTodoChangedTitle] = useState<Todo | null>(null);
-
   const [isAllCompleted, setIsAllCompleted] = useState(false);
+  const [todoChangedTitle, setTodoChangedTitle] = useState<Todo | null>(null);
+  const [loadingTodoIds, setLoadingTodoIds] = useState<number[]>([0]);
 
-  useEffect(() => {
-    getTodos()
-      .then(responses => {
-        setTodos(responses);
+  const setError = (errorType: ErrorType) => {
+    setErrorState(errorType);
 
-        setIsAllCompleted(responses.every(todo => todo.completed));
-      })
-      .catch(() => {
-        setError(ErrorType.Load);
-      });
-
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
+    setTimeout(() => {
+      setErrorState(ErrorType.Default);
+    }, 3000);
+  };
 
   const filteredTodos = useMemo((): Todo[] => {
-    switch (filterType) {
-      case FilterType.All:
-        return todos;
-      case FilterType.Active:
-        return todos.filter(todo => !todo.completed);
-      case FilterType.Completed:
-        return todos.filter(todo => todo.completed);
-      default:
-        return todos;
-    }
+    return filterTodos(todos, filterType);
   }, [filterType, todos]);
-
-  const todosLeft = useMemo((): Todo[] => {
-    return todos.filter(todo => !todo.completed);
-  }, [todos]);
-
-  const todosCompleted = useMemo((): Todo[] => {
-    return todos.filter(todo => todo.completed);
-  }, [todos]);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsAllCompleted(false);
 
-    if (title.trim() === '') {
+    if (!title.trim().length) {
       setError(ErrorType.Input);
 
       return;
@@ -112,9 +57,9 @@ export const App: React.FC = () => {
       completed: false,
     };
 
-    setTempTodo({ ...newTodo, id: 0 });
-
     setIsInputDisabled(true);
+
+    setTempTodo({ ...newTodo, id: 0 });
 
     postTodo(newTodo)
       .then((response: TodoResponse) => {
@@ -124,55 +69,43 @@ export const App: React.FC = () => {
           ...currentTodos,
           { userId, id, title: titleTodo, completed },
         ]);
-        setTempTodo(null);
         setTitle('');
       })
       .catch(() => {
         setError(ErrorType.Add);
-        setTempTodo(null);
       })
       .finally(() => {
         setIsInputDisabled(false);
+        setTempTodo(null);
       });
   };
 
   const handleDeleteTodo = (todoID: number | null) => {
-    setIdTodoChanged(todoID);
     setIsInputDisabled(true);
+
+    if (todoID) {
+      setLoadingTodoIds(currentIds => [...currentIds, todoID]);
+    }
 
     deleteTodo(todoID)
       .then(() => {
         setTodos(currentTodos =>
           currentTodos.filter(todo => todo.id !== todoID),
         );
-        setIsInputDisabled(false);
       })
       .catch(() => {
-        setIsLoading(false);
         setError(ErrorType.Delete);
       })
       .finally(() => {
-        setIdTodoChanged(null);
+        setIsInputDisabled(false);
+        setLoadingTodoIds(currentIds => currentIds.filter(id => id !== todoID));
       });
   };
 
   const handleDeleteCompletedTodos = () => {
-    setIsInputDisabled(true);
-
     todos.forEach(todo => {
       if (todo.completed) {
-        deleteTodo(todo.id)
-          .then(() => {
-            setTodos(currentTodos =>
-              currentTodos.filter(currentTodo => currentTodo.id !== todo.id),
-            );
-          })
-          .catch(() => {
-            setError(ErrorType.CompletedDelete);
-          })
-          .finally(() => {
-            setIsInputDisabled(false);
-          });
+        handleDeleteTodo(todo.id);
       }
     });
   };
@@ -190,14 +123,14 @@ export const App: React.FC = () => {
         completed: !state,
       };
 
-      const patchPromise = patchTodo(todo.id, updatedTodo) as Promise<Todo>;
+      const patchPromise = patchTodo(todo.id, updatedTodo);
 
       patchPromises.push(patchPromise);
-      setActiveTodos(currentTodos => [...currentTodos, updatedTodo]);
+
+      setLoadingTodoIds(currentTodos => [...currentTodos, updatedTodo.id]);
     }
 
     try {
-      setIsLoading(true);
       const patchedTodos = await Promise.all(patchPromises);
 
       setTodos(currentTodos =>
@@ -210,14 +143,12 @@ export const App: React.FC = () => {
     } catch (error) {
       setError(ErrorType.Update);
     } finally {
-      setIsLoading(false);
-      setActiveTodos([]);
+      setLoadingTodoIds([]);
     }
   };
 
   const handleCompletedTodo = async (chosenTodo: Todo) => {
-    setIdTodoChanged(chosenTodo.id);
-    setIsLoading(true);
+    setLoadingTodoIds(currentIds => [...currentIds, chosenTodo.id]);
 
     const updatedTodo: Todo = {
       ...chosenTodo,
@@ -238,26 +169,26 @@ export const App: React.FC = () => {
       });
     } catch (error) {
       setError(ErrorType.Update);
-      setIsLoading(false);
     } finally {
-      setIsLoading(false);
-      setActiveTodos([]);
-      setIdTodoChanged(null);
+      setLoadingTodoIds([]);
     }
   };
 
   const handleDoubleClickTodo = (chosenTodo: Todo) => {
     setTodoChangedTitle(chosenTodo);
+    setLoadingTodoIds(currentIds => [...currentIds, chosenTodo.id]);
   };
 
-  const handleSubmitEdit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmitEdit = async (
+    titleEdit: string,
+    event: React.FormEvent<HTMLFormElement> | null = null,
+  ) => {
+    event?.preventDefault();
 
     const trimmedTitle = titleEdit.trim();
     const prevTodo = todos.find(todo => todo.id === todoChangedTitle?.id);
 
     if (!trimmedTitle) {
-      setIsLoading(false);
       handleDeleteTodo(todoChangedTitle?.id || null);
 
       return;
@@ -269,8 +200,6 @@ export const App: React.FC = () => {
       trimmedTitle &&
       trimmedTitle !== prevTodo.title
     ) {
-      setIsLoading(true);
-
       const updatedTodo: Todo = {
         ...todoChangedTitle,
         title: trimmedTitle,
@@ -284,57 +213,27 @@ export const App: React.FC = () => {
             todo.id === patchedTodo.id ? patchedTodo : todo,
           );
         });
-
         setTodoChangedTitle(null);
       } catch (error) {
         setError(ErrorType.Update);
-        setIsLoading(false);
+        setLoadingTodoIds(currentIds =>
+          currentIds.filter(id => id !== todoChangedTitle.id),
+        );
       } finally {
-        setIsLoading(false);
+        setLoadingTodoIds(currentIds =>
+          currentIds.filter(id => id !== todoChangedTitle.id),
+        );
       }
     } else {
       setTodoChangedTitle(null);
+      setLoadingTodoIds(currentIds =>
+        currentIds.filter(id => id !== todoChangedTitle?.id),
+      );
     }
   };
 
-  const handleBlurEdit = async () => {
-    const trimmedTitle = titleEdit.trim();
-    const prevTodo = todos.find(todo => todo.id === todoChangedTitle?.id);
-
-    if (
-      todoChangedTitle &&
-      prevTodo &&
-      trimmedTitle &&
-      trimmedTitle !== prevTodo.title
-    ) {
-      setIsLoading(true);
-
-      const updatedTodo: Todo = {
-        ...todoChangedTitle,
-        title: trimmedTitle,
-      };
-
-      try {
-        const patchedTodo = await patchTodo(todoChangedTitle.id, updatedTodo);
-
-        setTodos(currentTodos => {
-          return currentTodos.map(todo =>
-            todo.id === patchedTodo.id ? patchedTodo : todo,
-          );
-        });
-
-        setTodoChangedTitle(null);
-      } catch (error) {
-        setError(ErrorType.Update);
-        setIsLoading(false);
-      } finally {
-        setIsLoading(false);
-      }
-    } else if (!trimmedTitle) {
-      handleDeleteTodo(todoChangedTitle?.id || null);
-    } else {
-      setTodoChangedTitle(null);
-    }
+  const handleBlurEdit = async (titleEdit: string) => {
+    await handleSubmitEdit(titleEdit);
   };
 
   const handleCancelEdit = () => {
@@ -342,14 +241,21 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
+    getTodos()
+      .then(responses => {
+        setTodos(responses);
+        setIsAllCompleted(responses.every(todo => todo.completed));
+      })
+      .catch(() => {
+        setError(ErrorType.Load);
+      });
+  }, []);
+
+  useEffect(() => {
     if (!isInputDisabled && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isInputDisabled]);
-
-  if (!USER_ID) {
-    return <UserWarning />;
-  }
 
   return (
     <div className="todoapp">
@@ -359,43 +265,38 @@ export const App: React.FC = () => {
         <Header
           todos={todos}
           isAllCompleted={isAllCompleted}
-          onToggleAll={handleToggleAll}
-          onSubmit={handleSubmit}
           inputRef={inputRef}
           title={title}
-          setTitle={setTitle}
           isInputDisabled={isInputDisabled}
+          onToggleAll={handleToggleAll}
+          onSubmit={handleSubmit}
+          setTitle={setTitle}
         />
         <TodoList
           todos={filteredTodos}
+          tempTodo={tempTodo}
+          todoChangedTitle={todoChangedTitle}
+          inputEditRef={inputEditRef}
+          loadingTodoIds={loadingTodoIds}
           onDeleteTodo={handleDeleteTodo}
           onCompletedTodo={handleCompletedTodo}
           onDoubleClickTodo={handleDoubleClickTodo}
           onSubmitEdit={handleSubmitEdit}
-          tempTodo={tempTodo}
-          idDeletedTodo={idTodoChanged}
-          todoChangedTitle={todoChangedTitle}
-          isLoading={isLoading}
-          activeTodos={activeTodos}
-          titleEdit={titleEdit}
-          onTitleEdit={setTitleEdit}
-          inputEditRef={inputEditRef}
           onCancelEdit={handleCancelEdit}
           handleBlurEdit={handleBlurEdit}
         />
 
         {!todos.length || (
           <Footer
-            todosLeft={todosLeft}
+            todos={todos}
             filterType={filterType}
             setFilterType={setFilterType}
-            todosCompleted={todosCompleted}
             onDeleteCompletedTodos={handleDeleteCompletedTodos}
           />
         )}
       </div>
 
-      <ErrorNotification todos={todos} errorState={errorState} />
+      <ErrorNotification errorState={errorState} />
     </div>
   );
 };

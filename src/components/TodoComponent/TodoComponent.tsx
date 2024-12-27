@@ -1,41 +1,38 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React from 'react';
+import React, { useState } from 'react';
 import classNames from 'classnames';
 import { Todo } from '../../types/Todo';
 
 type Props = {
-  onDoubleClickTodo: (todo: Todo) => void;
   todo: Todo;
-  onTitleEdit: (newValue: string) => void;
-  onCompletedTodo: (todo: Todo) => void;
   todoChangedTitle: Todo | null;
-  onSubmitEdit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   inputEditRef: React.RefObject<HTMLInputElement> | null;
-  titleEdit: string;
-  handleBlurEdit: () => void;
+  loadingTodoIds: number[];
+  onDoubleClickTodo: (todo: Todo) => void;
+  onCompletedTodo: (todo: Todo) => void;
+  onSubmitEdit: (
+    titleEdit: string,
+    event: React.FormEvent<HTMLFormElement> | null,
+  ) => Promise<void>;
+  handleBlurEdit: (titleEdit: string) => void;
   onDeleteTodo: (todoId: number | null) => void;
-  idDeletedTodo: number | null;
-  activeTodos: Todo[];
-  isLoading: boolean;
 };
 
 export const TodoComponent: React.FC<Props> = (props: Props) => {
   const {
     onDoubleClickTodo,
     todo,
-    onTitleEdit,
     onCompletedTodo,
     todoChangedTitle,
     onSubmitEdit,
     inputEditRef,
-    titleEdit,
     handleBlurEdit,
     onDeleteTodo,
-    idDeletedTodo,
-    activeTodos,
-    isLoading,
+    loadingTodoIds,
   } = props;
+
+  const [titleEdit, setTitleEdit] = useState('');
 
   const { id, completed, title } = todo;
 
@@ -45,7 +42,7 @@ export const TodoComponent: React.FC<Props> = (props: Props) => {
       className={classNames('todo', { completed: completed })}
       onDoubleClick={() => {
         onDoubleClickTodo(todo);
-        onTitleEdit(title);
+        setTitleEdit(title);
       }}
     >
       <label className="todo__status-label">
@@ -61,7 +58,7 @@ export const TodoComponent: React.FC<Props> = (props: Props) => {
       </label>
 
       {todoChangedTitle?.id === id ? (
-        <form onSubmit={onSubmitEdit}>
+        <form onSubmit={event => onSubmitEdit(titleEdit, event)}>
           <input
             data-cy="TodoTitleField"
             type="text"
@@ -69,8 +66,8 @@ export const TodoComponent: React.FC<Props> = (props: Props) => {
             placeholder="Empty todo will be deleted"
             ref={inputEditRef}
             value={titleEdit}
-            onChange={event => onTitleEdit(event.target.value)}
-            onBlur={handleBlurEdit}
+            onChange={event => setTitleEdit(event.target.value)}
+            onBlur={() => handleBlurEdit(titleEdit)}
           />
         </form>
       ) : (
@@ -95,12 +92,7 @@ export const TodoComponent: React.FC<Props> = (props: Props) => {
       <div
         data-cy="TodoLoader"
         className={classNames('modal overlay', {
-          'is-active':
-            idDeletedTodo === id ||
-            (activeTodos.find(activeTodo => todo.id === activeTodo.id) &&
-              isLoading) ||
-            (isLoading && todoChangedTitle?.id === id) ||
-            todo.id === 0,
+          'is-active': loadingTodoIds.includes(id),
         })}
       >
         <div className="modal-background has-background-white-ter" />
