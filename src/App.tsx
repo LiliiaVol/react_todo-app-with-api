@@ -24,16 +24,23 @@ export const App: React.FC = () => {
   const [filterType, setFilterType] = useState<FilterType>(FilterType.All);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputEditRef = useRef<HTMLInputElement>(null);
+  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
   const [isAllCompleted, setIsAllCompleted] = useState(false);
   const [todoChangedTitle, setTodoChangedTitle] = useState<Todo | null>(null);
   const [loadingTodoIds, setLoadingTodoIds] = useState<number[]>([0]);
 
-  const setError = (errorType: ErrorType) => {
-    setErrorState(errorType);
+  const trimmedTitle = title.trim();
 
-    setTimeout(() => {
+  const setError = (errorType: ErrorType) => {
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
+
+    setErrorState(errorType);
+    errorTimeoutRef.current = setTimeout(() => {
       setErrorState(ErrorType.Default);
+      errorTimeoutRef.current = null;
     }, 3000);
   };
 
@@ -45,7 +52,7 @@ export const App: React.FC = () => {
     event.preventDefault();
     setIsAllCompleted(false);
 
-    if (!title.trim().length) {
+    if (!trimmedTitle.length) {
       setError(ErrorType.Input);
 
       return;
@@ -53,7 +60,7 @@ export const App: React.FC = () => {
 
     const newTodo = {
       userId: USER_ID,
-      title: title.trim(),
+      title: trimmedTitle,
       completed: false,
     };
 

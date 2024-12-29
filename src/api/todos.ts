@@ -2,19 +2,20 @@ import { Todo, TodoResponse } from '../types/Todo';
 import { client } from '../utils/fetchClient';
 
 export const USER_ID = 2179;
+const todos = '/todos';
 
 export const getTodos = () => {
-  return client.get<Todo[]>(`/todos?userId=${USER_ID}`);
+  return client.get<Todo[]>(`${todos}?userId=${USER_ID}`);
 };
 
 export const postTodo = (data: Partial<Todo>): Promise<TodoResponse> => {
-  return client.post('/todos', data);
+  return client.post(`${todos}`, data);
 };
 
 export const deleteTodo = (todoID: number | null) => {
-  return client.delete(`/todos/${todoID}`);
+  return client.delete(`${todos}/${todoID}`);
 };
 
 export const patchTodo = (todoID: number, data: Todo): Promise<Todo> => {
-  return client.patch(`/todos/${todoID}`, data);
+  return client.patch(`${todos}/${todoID}`, data);
 };
