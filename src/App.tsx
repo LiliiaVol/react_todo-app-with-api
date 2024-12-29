@@ -192,10 +192,10 @@ export const App: React.FC = () => {
   ) => {
     event?.preventDefault();
 
-    const trimmedTitle = titleEdit.trim();
+    const trimmedTitleEdit = titleEdit.trim();
     const prevTodo = todos.find(todo => todo.id === todoChangedTitle?.id);
 
-    if (!trimmedTitle) {
+    if (!trimmedTitleEdit) {
       handleDeleteTodo(todoChangedTitle?.id || null);
 
       return;
@@ -204,12 +204,12 @@ export const App: React.FC = () => {
     if (
       todoChangedTitle &&
       prevTodo &&
-      trimmedTitle &&
-      trimmedTitle !== prevTodo.title
+      trimmedTitleEdit &&
+      trimmedTitleEdit !== prevTodo.title
     ) {
       const updatedTodo: Todo = {
         ...todoChangedTitle,
-        title: trimmedTitle,
+        title: trimmedTitleEdit,
       };
 
       try {
